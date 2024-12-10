@@ -68,7 +68,7 @@ jobs:
 
         - name: Copiar Archivos al servidor 
           run: |
-            rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" ./ ${{ secrets.USER_SERVER }}@${{ secrets.IP_PUBLICA }}:/home/ubuntu/pruebaM5_01/
+            rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" ./prueba_modulo_5_desafio_01 ${{ secrets.USER_SERVER }}@${{ secrets.IP_PUBLICA }}:/home/ubuntu/pruebaM5_01/
     
 
     LevantarServicio:
