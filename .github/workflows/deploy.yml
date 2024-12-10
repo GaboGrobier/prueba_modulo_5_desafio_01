@@ -21,8 +21,8 @@ jobs:
           aws ec2 run-instances \
             --image-id ami-0e2c8caa4b6378d8c \
             --instance-type t2.micro \
-            --subnet-id subnet-0372819e32454a75b \
-            --security-group-ids sg-0caf06059a611f046 \
+            --subnet-id subnet-046aa961fb51e7eb3 \
+            --security-group-ids sg-0ab4e964071ed01ca \
             --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=DesafioM501}]' \
             --associate-public-ip-address \
             --key-name desafioLatam
@@ -150,7 +150,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-          
+
       - name: obtener ip instancia
         id: get-ip
         run: |
