@@ -1,100 +1,155 @@
 name: prueba modulo 5 desafio 01
 
 on: 
-    pull_request:
-         branches:
-          -  main
+  pull_request:
+    branches:
+      - main
+
 jobs:
-    check-code:
-        runs-on: ubuntu-latest
+  crearEc2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
 
-        steps:
-        - name: obtener codigo
-          uses: actions/checkout@v2
+      - name: Crear EC2
+        run: |
+          aws ec2 run-instances \
+            --image-id ami-0e2c8caa4b6378d8c \
+            --instance-type t2.micro \
+            --subnet-id subnet-0372819e32454a75b \
+            --security-group-ids sg-0caf06059a611f046 \
+            --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=DesafioM501}]' \
+            --associate-public-ip-address \
+            --key-name desafioLatam
 
-        - name: Verificar 
-          if: success()
-          run: echo "El codigo se pudo obtener"
+  check-code:
+    runs-on: ubuntu-latest
+    needs: crearEc2
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v2
 
-
-    instalar-requerimientos:
-        runs-on: ubuntu-latest
-        needs: check-code
-
-        steps:
-
-            - name: Creando ssh en docker 
-              run: |
-                mkdir -p ~/.ssh
-                echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
-                chmod 600 ~/.ssh/id_rsa
-
-            - name: instalar docker 
-              run: |
-                ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{secrets.USER_SERVER}}@${{ secrets.IP_PUBLICA }} << 'EOF'
-                mkdir pruebaM5_01
-                sudo apt-get install ca-certificates curl
-                sudo install -m 0755 -d /etc/apt/keyrings
-                sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-                sudo chmod a+r /etc/apt/keyrings/docker.asc
-                echo \
-                    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-                    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-                    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                sudo apt-get update
-                sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-                sudo usermod -aG docker $USER
-                sudo newgrp docker
-                EOF
-
-            - name: Verificar instalacion docker  
-              if: success()
-              run: echo "Se instalo correctamente Docker "
- 
-
-    
-    Conectarse:
-        runs-on: ubuntu-latest
-        needs: instalar-requerimientos
-
-        steps:
-
-        - name: obtener codigo
-          uses: actions/checkout@v2
+      - name: Verificar
+        if: success()
+        run: echo "El código se pudo obtener"
 
 
-        - name: Creando ssh en docker 
-          run: |
-            mkdir -p ~/.ssh
-            echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
 
-        - name: Verificar archivos en el runner
-          run: pwd
-            
+  instalar-requerimientos:
 
-        - name: Copiar Archivos al servidor 
-          run: |
-            rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" ./ ${{ secrets.USER_SERVER }}@${{ secrets.IP_PUBLICA }}:/home/ubuntu/pruebaM5_01/
-    
+    runs-on: ubuntu-latest
+    needs: check-code
+    steps:
 
-    LevantarServicio:
-        runs-on: ubuntu-latest
-        needs: Conectarse
+      - name: obtener ip instancia
+        id: get-ip
+        run: |
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=DesafioM501" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "Public IP: $PUBLIC_IP"
+          echo "ip=$PUBLIC_IP" >> $GITHUB_ENV
 
-        steps:
+      - name: Creando SSH en Docker
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
-            - name: Creando ssh en docker 
-              run: |
-                mkdir -p ~/.ssh
-                echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
-                chmod 600 ~/.ssh/id_rsa
+      - name: Instalar Docker
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ env.ip }} << 'EOF'
+          mkdir pruebaM5_01
+          sudo apt-get install ca-certificates curl
+          sudo install -m 0755 -d /etc/apt/keyrings
+          sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+          sudo chmod a+r /etc/apt/keyrings/docker.asc
+          echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+              $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+              sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+          sudo usermod -aG docker $USER
+          sudo newgrp docker
+          EOF
+
+      - name: Verificar instalación Docker
+        if: success()
+        run: echo "Se instaló correctamente Docker"
+
+  Conectarse:
+
+    runs-on: ubuntu-latest
+    needs: instalar-requerimientos
+
+    steps:
+      - name: obtener ip instancia
+        id: get-ip
+        run: |
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=DesafioM501" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "Public IP: $PUBLIC_IP"
+          echo "ip=$PUBLIC_IP" >> $GITHUB_ENV
 
 
-            - name: SSH commands to deploy
-              run: |
-                ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{secrets.USER_SERVER}}@${{ secrets.IP_PUBLICA }} << 'EOF'
-                cd /home/ubuntu/pruebaM5_01/
-                docker compose down 
-                docker compose up -d
-                EOF
+      - name: Obtener código
+        uses: actions/checkout@v2
+
+      - name: Creando SSH en Docker
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+      - name: Verificar archivos en el runner
+        run: pwd
+
+
+      - name: Copiar archivos al servidor
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" ./ ${{ secrets.USER_SERVER }}@${{ env.ip }}:/home/ubuntu/pruebaM5_01/
+
+
+  LevantarServicio:
+    runs-on: ubuntu-latest
+    needs: Conectarse
+    steps:
+
+
+      - name: obtener ip instancia
+        id: get-ip
+        run: |
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=DesafioM501" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "Public IP: $PUBLIC_IP"
+          echo "ip=$PUBLIC_IP" >> $GITHUB_ENV
+
+      - name: Creando SSH en Docker
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+
+      - name: SSH commands to deploy
+        run: |
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ env.ip  }} << 'EOF'
+          cd /home/ubuntu/pruebaM5_01/
+          docker compose down 
+          docker compose up -d
+          EOF
