@@ -83,6 +83,14 @@ jobs:
         needs: Conectarse
 
         steps:
+
+            - name: Creando ssh en docker 
+              run: |
+                mkdir -p ~/.ssh
+                echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
+                chmod 600 ~/.ssh/id_rsa
+
+
             - name: SSH commands to deploy
               run: |
                 ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{secrets.USER_SERVER}}@${{ secrets.IP_PUBLICA }} << 'EOF'
