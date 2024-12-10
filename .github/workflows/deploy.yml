@@ -95,6 +95,6 @@ jobs:
               run: |
                 ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{secrets.USER_SERVER}}@${{ secrets.IP_PUBLICA }} << 'EOF'
                 cd /home/ubuntu/pruebaM5_01/
-                docker build -t prueba1 .
-                docker run -d -p 80:8000 prueba1
+                docker compose down 
+                docker compose up -d
                 EOF
