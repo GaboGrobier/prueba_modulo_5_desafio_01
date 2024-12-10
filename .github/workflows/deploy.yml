@@ -66,7 +66,7 @@ jobs:
             chmod 600 ~/.ssh/id_rsa
 
         - name: Verificar archivos en el runner
-          run: ls -la /home/runner/work/prueba_modulo_5_desafio_01/prueba_modulo_5_desafio_01/
+          run: pwd
             
 
         - name: Copiar Archivos al servidor 
