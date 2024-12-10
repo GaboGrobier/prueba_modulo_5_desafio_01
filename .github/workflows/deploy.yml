@@ -64,6 +64,9 @@ jobs:
             mkdir -p ~/.ssh
             echo "${{ secrets.PASSWORD_SERVER }}" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
+
+        - name: Verificar archivos en el runner
+          run: ls -la /home/runner/work/prueba_modulo_5_desafio_01/prueba_modulo_5_desafio_01/
             
 
         - name: Copiar Archivos al servidor 
